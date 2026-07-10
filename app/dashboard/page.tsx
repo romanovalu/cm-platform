@@ -114,15 +114,21 @@ export default function Dashboard() {
       {/* Header */}
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-white">Voler Orbit</h1>
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut()
-            window.location.href = '/'
-          }}
-          className="text-sm text-gray-400 hover:text-white transition-colors"
-        >
-          Cerrar sesión
-        </button>
+        <div className="flex items-center gap-4">
+          <button onClick={() => window.location.href = '/dashboard/finanzas'}
+            className="text-sm text-gray-400 hover:text-white transition-colors">
+            💰 Finanzas
+          </button>
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut()
+              window.location.href = '/'
+            }}
+            className="text-sm text-gray-400 hover:text-white transition-colors"
+          >
+            Cerrar sesión
+          </button>
+        </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8">
