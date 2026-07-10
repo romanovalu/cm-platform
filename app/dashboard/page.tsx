@@ -167,7 +167,7 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {clientes.map((cliente) => (
-                  <tr key={cliente.id} className="border-b border-gray-800 last:border-0 hover:bg-gray-800 cursor-pointer transition-colors">
+                  <tr key={cliente.id} onClick={() => window.location.href = `/dashboard/cliente/${cliente.id}`} className="border-b border-gray-800 last:border-0 hover:bg-gray-800 cursor-pointer transition-colors">
                     <td className="px-6 py-4">
                       <p className="text-white font-medium">{cliente.nombre}</p>
                       {cliente.empresa && <p className="text-gray-400 text-sm">{cliente.empresa}</p>}
