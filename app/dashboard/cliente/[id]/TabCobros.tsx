@@ -55,6 +55,14 @@ export default function TabCobros({ clienteId, retainer, moneda }: { clienteId: 
 
   const cambiarEstado = async (id: string, estado: Cobro['estado']) => {
     await supabase.from('cobros').update({ estado }).eq('id', id)
+    const { data: todos } = await supabase.from('cobros').select('estado').eq('cliente_id', clienteId)
+    if (todos) {
+      const lista = todos.map(c => c.estado === id ? estado : c.estado)
+      let pagocliente: 'pagado' | 'pendiente' | 'vencido' = 'pendiente'
+      if (lista.some(e => e === 'vencido')) pagocliente = 'vencido'
+      else if (lista.length > 0 && lista.every(e => e === 'pagado')) pagocliente = 'pagado'
+      await supabase.from('clientes').update({ pago: pagocliente }).eq('id', clienteId)
+    }
     await cargar()
   }
 
