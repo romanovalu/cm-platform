@@ -27,6 +27,7 @@ const pagoColor = { pagado: 'bg-green-500/20 text-green-400', pendiente: 'bg-yel
 export default function ClientePage() {
   const { id } = useParams()
   const [cliente, setCliente] = useState<Cliente | null>(null)
+  const [pagoReal, setPagoReal] = useState<'pagado' | 'pendiente' | 'vencido'>('pendiente')
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'resumen' | 'onboarding' | 'estudio' | 'cobros'>('resumen')
 
@@ -36,6 +37,13 @@ export default function ClientePage() {
       if (!session) { window.location.href = '/'; return }
       const { data } = await supabase.from('clientes').select('*').eq('id', id).single()
       if (data) setCliente(data)
+      const { data: cobros } = await supabase.from('cobros').select('estado').eq('cliente_id', id as string)
+      if (cobros && cobros.length > 0) {
+        const estados = cobros.map((c: { estado: string }) => c.estado)
+        if (estados.some(e => e === 'vencido')) setPagoReal('vencido')
+        else if (estados.every(e => e === 'pagado')) setPagoReal('pagado')
+        else setPagoReal('pendiente')
+      }
       setLoading(false)
     }
     cargar()
@@ -91,7 +99,7 @@ export default function ClientePage() {
                   </div>
                   <div>
                     <p className="text-gray-500 text-xs mb-1">Estado de pago</p>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${pagoColor[cliente.pago]}`}>{cliente.pago.charAt(0).toUpperCase() + cliente.pago.slice(1)}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${pagoColor[pagoReal]}`}>{pagoReal.charAt(0).toUpperCase() + pagoReal.slice(1)}</span>
                   </div>
                 </div>
               </div>
