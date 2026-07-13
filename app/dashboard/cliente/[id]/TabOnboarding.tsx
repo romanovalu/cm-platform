@@ -20,6 +20,13 @@ export default function TabOnboarding({ clienteId }: { clienteId: string }) {
   const [data, setData] = useState<any>(null)
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
+  const [linkCopiado, setLinkCopiado] = useState(false)
+
+  const copiarLinkBrief = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/brief/${clienteId}`)
+    setLinkCopiado(true)
+    setTimeout(() => setLinkCopiado(false), 2000)
+  }
   const [form, setForm] = useState({
     descripcion: '', publico_objetivo: '', tono_voz: '', colores: '',
     competidores: '', objetivos: '', que_no_hacer: '',
@@ -82,7 +89,14 @@ export default function TabOnboarding({ clienteId }: { clienteId: string }) {
 
       {/* BRIEF */}
       <div className="bg-gray-900 rounded-2xl p-6">
-        <h3 className="text-white font-bold mb-5">📋 Brief de marca</h3>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-white font-bold">📋 Brief de marca</h3>
+          <button onClick={copiarLinkBrief}
+            className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded-xl transition-colors">
+            {linkCopiado ? '✓ Link copiado' : '🔗 Enviar al cliente'}
+          </button>
+        </div>
+        <p className="text-gray-500 text-xs mb-4 -mt-3">El cliente puede completar este formulario directamente desde su link sin necesidad de registrarse.</p>
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-gray-400 mb-1">Descripción del negocio</label>

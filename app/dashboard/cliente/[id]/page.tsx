@@ -6,6 +6,8 @@ import { supabase } from '../../../../lib/supabase'
 import TabOnboarding from './TabOnboarding'
 import TabEstudio from './TabEstudio'
 import TabCobros from './TabCobros'
+import TabContratos from './TabContratos'
+import TabMetricas from './TabMetricas'
 
 type Cliente = {
   id: string
@@ -24,12 +26,14 @@ type Cliente = {
 const estadoColor = { activo: 'bg-green-500', pausado: 'bg-gray-500', revisar: 'bg-yellow-500' }
 const pagoColor = { pagado: 'bg-green-500/20 text-green-400', pendiente: 'bg-yellow-500/20 text-yellow-400', vencido: 'bg-red-500/20 text-red-400' }
 
+type Tab = 'resumen' | 'onboarding' | 'estudio' | 'cobros' | 'contratos' | 'metricas'
+
 export default function ClientePage() {
   const { id } = useParams()
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [pagoReal, setPagoReal] = useState<'pagado' | 'pendiente' | 'vencido'>('pendiente')
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'resumen' | 'onboarding' | 'estudio' | 'cobros'>('resumen')
+  const [tab, setTab] = useState<Tab>('resumen')
 
   useEffect(() => {
     const cargar = async () => {
@@ -52,6 +56,15 @@ export default function ClientePage() {
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
   if (!cliente) return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><p className="text-gray-400">Cliente no encontrado</p></div>
 
+  const TABS = [
+    { key: 'resumen', label: 'Resumen' },
+    { key: 'onboarding', label: 'Onboarding' },
+    { key: 'estudio', label: 'Estudio' },
+    { key: 'cobros', label: 'Cobros' },
+    { key: 'contratos', label: 'Contratos' },
+    { key: 'metricas', label: 'Métricas' },
+  ]
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
@@ -67,11 +80,11 @@ export default function ClientePage() {
         </div>
       </header>
 
-      <div className="bg-gray-900 border-b border-gray-800 px-6">
-        <div className="flex gap-0">
-          {[{ key: 'resumen', label: 'Resumen' }, { key: 'onboarding', label: 'Onboarding' }, { key: 'estudio', label: 'Estudio' }, { key: 'cobros', label: 'Cobros' }].map(t => (
-            <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${tab === t.key ? 'border-violet-500 text-violet-400' : 'border-transparent text-gray-400 hover:text-white'}`}>
+      <div className="bg-gray-900 border-b border-gray-800 px-6 overflow-x-auto">
+        <div className="flex gap-0 min-w-max">
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key as Tab)}
+              className={`px-5 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? 'border-violet-500 text-violet-400' : 'border-transparent text-gray-400 hover:text-white'}`}>
               {t.label}
             </button>
           ))}
@@ -111,8 +124,14 @@ export default function ClientePage() {
               </div>
             )}
             <div className="grid grid-cols-3 gap-4">
-              {[{ key: 'onboarding', icon: '📋', label: 'Onboarding', sub: 'Brief y contrato' }, { key: 'estudio', icon: '🗓', label: 'Estudio', sub: 'Calendario de contenido' }, { key: 'cobros', icon: '💳', label: 'Cobros', sub: 'Historial de pagos' }].map(a => (
-                <button key={a.key} onClick={() => setTab(a.key as typeof tab)} className="bg-gray-900 hover:bg-gray-800 rounded-2xl p-6 text-left transition-colors">
+              {[
+                { key: 'onboarding', icon: '📋', label: 'Onboarding', sub: 'Brief y accesos' },
+                { key: 'estudio', icon: '🗓', label: 'Estudio', sub: 'Calendario de contenido' },
+                { key: 'cobros', icon: '💳', label: 'Cobros', sub: 'Historial de pagos' },
+                { key: 'contratos', icon: '📄', label: 'Contratos', sub: 'Acuerdos firmados' },
+                { key: 'metricas', icon: '📊', label: 'Métricas', sub: 'Reportes con IA' },
+              ].map(a => (
+                <button key={a.key} onClick={() => setTab(a.key as Tab)} className="bg-gray-900 hover:bg-gray-800 rounded-2xl p-5 text-left transition-colors">
                   <p className="text-2xl mb-2">{a.icon}</p>
                   <p className="text-white font-medium text-sm">{a.label}</p>
                   <p className="text-gray-400 text-xs mt-1">{a.sub}</p>
@@ -124,6 +143,8 @@ export default function ClientePage() {
         {tab === 'onboarding' && <TabOnboarding clienteId={id as string} />}
         {tab === 'estudio' && <TabEstudio clienteId={id as string} clienteNombre={cliente.nombre} />}
         {tab === 'cobros' && <TabCobros clienteId={id as string} retainer={cliente.retainer} moneda={cliente.moneda} />}
+        {tab === 'contratos' && <TabContratos clienteId={id as string} monedaCliente={cliente.moneda} />}
+        {tab === 'metricas' && <TabMetricas clienteId={id as string} clienteNombre={cliente.nombre} />}
       </main>
     </div>
   )
