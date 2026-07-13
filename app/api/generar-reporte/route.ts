@@ -1,9 +1,16 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
 export async function POST(req: NextRequest) {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json(
+      { error: 'ANTHROPIC_API_KEY no configurada. Agregala en Vercel → Settings → Environment Variables.' },
+      { status: 500 }
+    )
+  }
+
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
   try {
     const { plataforma, periodo, datos } = await req.json()
 
@@ -29,8 +36,8 @@ Formato: texto plano con secciones claras usando ===, no uses markdown con aster
 
     const reporte = (message.content[0] as { type: string; text: string }).text
     return NextResponse.json({ reporte })
-  } catch (error) {
-    console.error('Error generando reporte:', error)
-    return NextResponse.json({ error: 'Error al generar el reporte' }, { status: 500 })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Error desconocido'
+    return NextResponse.json({ error: `Error al llamar a la IA: ${msg}` }, { status: 500 })
   }
 }
