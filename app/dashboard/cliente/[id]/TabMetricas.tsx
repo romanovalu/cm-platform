@@ -18,9 +18,12 @@ export default function TabMetricas({ clienteId, clienteNombre }: { clienteId: s
   const [reportes, setReportes] = useState<Reporte[]>([])
   const [loading, setLoading] = useState(true)
   const [generando, setGenerando] = useState(false)
+  const [paso, setPaso] = useState('')
   const [linkCopiado, setLinkCopiado] = useState(false)
   const [verReporte, setVerReporte] = useState<Reporte | null>(null)
   const [error, setError] = useState('')
+  const [archivoNombre, setArchivoNombre] = useState('')
+  const [filas, setFilas] = useState<number>(0)
   const [form, setForm] = useState({ plataforma: 'Meta (Facebook/Instagram)', periodo: '', titulo: '' })
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -38,52 +41,85 @@ export default function TabMetricas({ clienteId, clienteNombre }: { clienteId: s
     setTimeout(() => setLinkCopiado(false), 2000)
   }
 
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setArchivoNombre(file.name)
+    setError('')
+    setFilas(0)
+    try {
+      const XLSX = await import('xlsx')
+      const buffer = await file.arrayBuffer()
+      const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const datos = XLSX.utils.sheet_to_json(ws)
+      setFilas(datos.length)
+      if (datos.length === 0) setError('El archivo no tiene filas con datos. Verificá que el Excel tenga datos en la primera hoja.')
+    } catch {
+      setError('No se pudo leer el archivo. Asegurate de que sea un .xlsx o .xls válido.')
+      setArchivoNombre('')
+    }
+  }
+
   const procesarExcel = async () => {
     const file = fileRef.current?.files?.[0]
-    if (!file || !form.periodo.trim()) {
-      setError('Seleccioná un archivo y completá el período')
-      return
-    }
+    if (!file) { setError('Primero seleccioná un archivo Excel'); return }
+    if (!form.periodo.trim()) { setError('Completá el campo Período'); return }
+    if (filas === 0) { setError('El archivo no tiene datos válidos'); return }
+
     setError('')
     setGenerando(true)
 
     try {
+      setPaso('Leyendo el archivo...')
       const XLSX = await import('xlsx')
       const buffer = await file.arrayBuffer()
-      const wb = XLSX.read(buffer, { type: 'array' })
+      const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' })
       const ws = wb.Sheets[wb.SheetNames[0]]
       const datos = XLSX.utils.sheet_to_json(ws)
 
-      if (!datos.length) {
-        setError('El archivo no tiene datos válidos')
-        setGenerando(false)
-        return
-      }
-
+      setPaso('Enviando datos a la IA...')
       const res = await fetch('/api/generar-reporte', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plataforma: form.plataforma, periodo: form.periodo, datos: datos.slice(0, 50) }),
+        body: JSON.stringify({
+          plataforma: form.plataforma,
+          periodo: form.periodo,
+          datos: datos.slice(0, 50),
+        }),
       })
 
-      const { reporte, error: apiError } = await res.json()
-      if (apiError) throw new Error(apiError)
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(`Error del servidor (${res.status}): ${text}`)
+      }
 
+      const json = await res.json()
+      if (json.error) throw new Error(json.error)
+      if (!json.reporte) throw new Error('La IA no devolvió un reporte. Verificá que ANTHROPIC_API_KEY esté configurado en Vercel.')
+
+      setPaso('Guardando reporte...')
       const titulo = form.titulo.trim() || `Reporte ${form.plataforma} — ${form.periodo}`
-      await supabase.from('reportes').insert({
+      const { error: dbErr } = await supabase.from('reportes').insert({
         cliente_id: clienteId,
         titulo,
         plataforma: form.plataforma,
         periodo: form.periodo,
         datos_json: datos.slice(0, 50),
-        reporte_texto: reporte,
+        reporte_texto: json.reporte,
       })
+      if (dbErr) throw new Error(`Error al guardar en base de datos: ${dbErr.message}`)
 
       setForm({ plataforma: 'Meta (Facebook/Instagram)', periodo: '', titulo: '' })
+      setArchivoNombre('')
+      setFilas(0)
       if (fileRef.current) fileRef.current.value = ''
+      setPaso('')
       await cargar()
-    } catch (e) {
-      setError('Hubo un error. Verificá que el archivo sea .xlsx o .xls')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error desconocido'
+      setError(msg)
+      setPaso('')
     }
     setGenerando(false)
   }
@@ -98,7 +134,7 @@ export default function TabMetricas({ clienteId, clienteNombre }: { clienteId: s
 
   return (
     <div className="space-y-6">
-      {/* Header con link */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-white font-bold">Portal de métricas</h3>
@@ -109,7 +145,7 @@ export default function TabMetricas({ clienteId, clienteNombre }: { clienteId: s
         </button>
       </div>
 
-      {/* Subir Excel */}
+      {/* Formulario */}
       <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
         <h4 className="text-white font-semibold mb-4">Cargar nuevo reporte</h4>
         <div className="space-y-4">
@@ -124,30 +160,70 @@ export default function TabMetricas({ clienteId, clienteNombre }: { clienteId: s
             <div>
               <label className="block text-sm text-gray-400 mb-1">Período *</label>
               <input value={form.periodo} onChange={e => setForm({ ...form, periodo: e.target.value })}
-                placeholder="Ej: Junio 2025 / Semana del 2-8 jun"
+                placeholder="Ej: Junio 2025"
                 className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:outline-none focus:border-violet-500" />
             </div>
           </div>
+
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Título del reporte (opcional)</label>
+            <label className="block text-sm text-gray-400 mb-1">Título (opcional)</label>
             <input value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })}
               placeholder="Se genera automáticamente si lo dejás vacío"
               className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:outline-none focus:border-violet-500" />
           </div>
+
+          {/* Zona de archivo */}
           <div>
             <label className="block text-sm text-gray-400 mb-2">Archivo Excel (.xlsx / .xls) *</label>
-            <div className="border-2 border-dashed border-gray-700 rounded-xl p-6 text-center hover:border-violet-600 transition-colors cursor-pointer"
-              onClick={() => fileRef.current?.click()}>
-              <p className="text-2xl mb-2">📊</p>
-              <p className="text-gray-300 text-sm">Hacé clic para seleccionar el Excel exportado de {form.plataforma}</p>
-              <p className="text-gray-500 text-xs mt-1">Exportá el reporte directamente desde el administrador de anuncios</p>
-              <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" />
+            <div
+              onClick={() => fileRef.current?.click()}
+              className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                archivoNombre
+                  ? 'border-green-600 bg-green-600/5'
+                  : 'border-gray-700 hover:border-violet-600'
+              }`}>
+              {archivoNombre ? (
+                <div>
+                  <p className="text-green-400 font-semibold text-sm mb-1">✓ Archivo cargado</p>
+                  <p className="text-white text-sm">{archivoNombre}</p>
+                  <p className="text-gray-400 text-xs mt-1">{filas} filas de datos encontradas</p>
+                  <p className="text-gray-600 text-xs mt-2">Clic para cambiar el archivo</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-gray-300 text-sm mb-1">Hacé clic para seleccionar el Excel</p>
+                  <p className="text-gray-500 text-xs">Exportá el reporte desde el administrador de anuncios de {form.plataforma}</p>
+                </div>
+              )}
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={onFileChange}
+              />
             </div>
           </div>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-          <button onClick={procesarExcel} disabled={generando}
-            className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-            {generando ? (<><span className="animate-spin">⟳</span> Analizando con IA...</>) : '✨ Generar reporte con IA'}
+
+          {error && (
+            <div className="bg-red-900/20 border border-red-700/40 rounded-xl p-4">
+              <p className="text-red-400 text-sm font-medium">Error</p>
+              <p className="text-red-300 text-sm mt-1">{error}</p>
+            </div>
+          )}
+
+          {paso && (
+            <div className="bg-violet-900/20 border border-violet-700/40 rounded-xl p-3 flex items-center gap-3">
+              <span className="text-violet-400 text-lg animate-spin inline-block">⟳</span>
+              <p className="text-violet-300 text-sm">{paso}</p>
+            </div>
+          )}
+
+          <button
+            onClick={procesarExcel}
+            disabled={generando || !archivoNombre || filas === 0}
+            className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            {generando ? paso || 'Procesando...' : '✨ Generar reporte con IA'}
           </button>
         </div>
       </div>
