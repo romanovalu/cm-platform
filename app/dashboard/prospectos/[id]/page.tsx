@@ -80,6 +80,9 @@ export default function ProspectoDetallePage() {
   const [editandoEstado, setEditandoEstado] = useState(false)
   const [paso, setPaso] = useState(1)
   const [form, setForm] = useState(FORM_VACIO)
+  const [modalEditar, setModalEditar] = useState(false)
+  const [formEditar, setFormEditar] = useState({ nombre: '', empresa: '', email: '', telefono: '', industria: '', origen: '', notas: '' })
+  const [guardandoEditar, setGuardandoEditar] = useState(false)
 
   useEffect(() => {
     const cargar = async () => {
@@ -179,6 +182,29 @@ export default function ProspectoDetallePage() {
     window.location.href = '/dashboard'
   }
 
+  const abrirEditar = () => {
+    if (!prospecto) return
+    setFormEditar({
+      nombre: prospecto.nombre,
+      empresa: prospecto.empresa || '',
+      email: prospecto.email || '',
+      telefono: prospecto.telefono || '',
+      industria: prospecto.industria || '',
+      origen: prospecto.origen || '',
+      notas: prospecto.notas || '',
+    })
+    setModalEditar(true)
+  }
+
+  const guardarEditar = async () => {
+    if (!formEditar.nombre.trim()) return
+    setGuardandoEditar(true)
+    await supabase.from('prospectos').update(formEditar).eq('id', id)
+    setProspecto(prev => prev ? { ...prev, ...formEditar } : prev)
+    setModalEditar(false)
+    setGuardandoEditar(false)
+  }
+
   const eliminar = async (presId: string) => {
     if (!confirm('¿Eliminar esta propuesta?')) return
     await supabase.from('presupuestos').delete().eq('id', presId)
@@ -218,6 +244,10 @@ export default function ProspectoDetallePage() {
         <div className="bg-gray-900 rounded-2xl p-6">
           <div className="flex items-start justify-between mb-4">
             <h3 className="text-white font-bold">Información del prospecto</h3>
+            <div className="flex items-center gap-2">
+              <button onClick={abrirEditar} className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded-lg transition-colors">
+                Editar
+              </button>
             <div className="relative">
               <button onClick={() => setEditandoEstado(!editandoEstado)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
@@ -240,6 +270,7 @@ export default function ProspectoDetallePage() {
                   ))}
                 </div>
               )}
+            </div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
@@ -465,6 +496,69 @@ export default function ProspectoDetallePage() {
                   {guardando ? 'Guardando...' : 'Guardar propuesta'}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal editar prospecto */}
+      {modalEditar && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-800 flex items-center justify-between">
+              <h3 className="text-white font-bold text-lg">Editar prospecto</h3>
+              <button onClick={() => setModalEditar(false)} className="text-gray-400 hover:text-white text-xl">✕</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Nombre *</label>
+                <input value={formEditar.nombre} onChange={e => setFormEditar({ ...formEditar, nombre: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:outline-none focus:border-violet-500" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Empresa</label>
+                <input value={formEditar.empresa} onChange={e => setFormEditar({ ...formEditar, empresa: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:outline-none focus:border-violet-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Email</label>
+                  <input type="email" value={formEditar.email} onChange={e => setFormEditar({ ...formEditar, email: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:outline-none focus:border-violet-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Teléfono</label>
+                  <input value={formEditar.telefono} onChange={e => setFormEditar({ ...formEditar, telefono: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:outline-none focus:border-violet-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Industria</label>
+                  <input value={formEditar.industria} onChange={e => setFormEditar({ ...formEditar, industria: e.target.value })}
+                    placeholder="Gastronomía, Moda..."
+                    className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:outline-none focus:border-violet-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Origen</label>
+                  <input value={formEditar.origen} onChange={e => setFormEditar({ ...formEditar, origen: e.target.value })}
+                    placeholder="Instagram, referido, web..."
+                    className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:outline-none focus:border-violet-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Notas</label>
+                <textarea value={formEditar.notas} onChange={e => setFormEditar({ ...formEditar, notas: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700 focus:outline-none focus:border-violet-500 resize-none" />
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-800 flex gap-3">
+              <button onClick={() => setModalEditar(false)} className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-colors">Cancelar</button>
+              <button onClick={guardarEditar} disabled={guardandoEditar || !formEditar.nombre.trim()}
+                className="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50">
+                {guardandoEditar ? 'Guardando...' : 'Guardar cambios'}
+              </button>
             </div>
           </div>
         </div>
