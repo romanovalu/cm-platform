@@ -75,6 +75,7 @@ export default function ProspectoDetallePage() {
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
+  const [editandoPresId, setEditandoPresId] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [linkCopiado, setLinkCopiado] = useState<string | null>(null)
   const [editandoEstado, setEditandoEstado] = useState(false)
@@ -116,14 +117,32 @@ export default function ProspectoDetallePage() {
   const addServicio = () => setForm({ ...form, servicios: [...form.servicios, { ...SERVICIO_VACIO }] })
   const removeServicio = (i: number) => setForm({ ...form, servicios: form.servicios.filter((_, idx) => idx !== i) })
 
-  const abrirModal = () => { setForm(FORM_VACIO); setPaso(1); setModal(true) }
-  const cerrarModal = () => { setModal(false); setPaso(1) }
+  const abrirModal = () => { setForm(FORM_VACIO); setEditandoPresId(null); setPaso(1); setModal(true) }
+  const cerrarModal = () => { setModal(false); setPaso(1); setEditandoPresId(null) }
+
+  const abrirEditarPres = (p: Presupuesto) => {
+    setForm({
+      titulo: p.titulo,
+      moneda: p.moneda,
+      descuento: p.descuento,
+      validez: p.validez || '',
+      notas: p.notas || '',
+      duracion: p.duracion || '',
+      modalidad_pago: p.modalidad_pago || '',
+      metodo_pago: p.metodo_pago || '',
+      no_incluye: p.no_incluye || '',
+      proximos_pasos: p.proximos_pasos || '',
+      servicios: (p.items as Servicio[]).length > 0 ? (p.items as Servicio[]) : [{ ...SERVICIO_VACIO }],
+    })
+    setEditandoPresId(p.id)
+    setPaso(1)
+    setModal(true)
+  }
 
   const guardarPresupuesto = async () => {
     if (!form.titulo.trim() || form.servicios.some(s => !s.nombre.trim())) return
     setGuardando(true)
-    await supabase.from('presupuestos').insert({
-      prospecto_id: id,
+    const payload = {
       titulo: form.titulo,
       items: form.servicios,
       subtotal,
@@ -137,10 +156,15 @@ export default function ProspectoDetallePage() {
       metodo_pago: form.metodo_pago || null,
       no_incluye: form.no_incluye || null,
       proximos_pasos: form.proximos_pasos || null,
-      estado: 'borrador',
-    })
+    }
+    if (editandoPresId) {
+      await supabase.from('presupuestos').update(payload).eq('id', editandoPresId)
+    } else {
+      await supabase.from('presupuestos').insert({ ...payload, prospecto_id: id, estado: 'borrador' })
+    }
     setModal(false)
     setPaso(1)
+    setEditandoPresId(null)
     setGuardando(false)
     await recargarPresupuestos()
   }
@@ -336,6 +360,7 @@ export default function ProspectoDetallePage() {
                       {(p.estado === 'borrador' || p.estado === 'enviado') && (
                         <button onClick={() => cambiarEstadoPres(p.id, 'aceptado')} className="px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white text-xs rounded-lg transition-colors text-center">Aceptada</button>
                       )}
+                      <button onClick={() => abrirEditarPres(p)} className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded-lg transition-colors text-center">Editar</button>
                       <button onClick={() => eliminar(p.id)} className="px-3 py-1.5 bg-gray-800 hover:bg-red-900/40 text-gray-500 hover:text-red-400 text-xs rounded-lg transition-colors text-center">Eliminar</button>
                     </div>
                   </div>
@@ -353,7 +378,7 @@ export default function ProspectoDetallePage() {
             {/* Header con pasos */}
             <div className="p-6 border-b border-gray-800">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-white font-bold text-lg">Nueva propuesta comercial</h3>
+                <h3 className="text-white font-bold text-lg">{editandoPresId ? 'Editar propuesta' : 'Nueva propuesta comercial'}</h3>
                 <button onClick={cerrarModal} className="text-gray-400 hover:text-white text-xl">✕</button>
               </div>
               <div className="flex gap-2">
@@ -493,7 +518,7 @@ export default function ProspectoDetallePage() {
               ) : (
                 <button onClick={guardarPresupuesto} disabled={guardando}
                   className="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50">
-                  {guardando ? 'Guardando...' : 'Guardar propuesta'}
+                  {guardando ? 'Guardando...' : editandoPresId ? 'Guardar cambios' : 'Guardar propuesta'}
                 </button>
               )}
             </div>
