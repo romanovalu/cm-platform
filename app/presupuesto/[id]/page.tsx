@@ -26,7 +26,7 @@ type Presupuesto = {
   prospecto_id: string
 }
 
-type Prospecto = { nombre: string; empresa: string }
+type Prospecto = { nombre: string; empresa: string | null }
 
 export default function PresupuestoPublicoPage() {
   const { id } = useParams()
