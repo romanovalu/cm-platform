@@ -46,7 +46,7 @@ export default function PresupuestoPublicoPage() {
         setFinalizado(true)
         setAccion(pres.estado)
       }
-      const { data: pro } = await supabase.from('prospectos').select('nombre, empresa, user_id').eq('id', pres.prospecto_id).single()
+      const { data: pro } = await supabase.from('prospectos').select('nombre, empresa').eq('id', pres.prospecto_id).single()
       if (pro) setProspecto(pro)
       setLoading(false)
     }
